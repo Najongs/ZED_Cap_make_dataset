@@ -7,7 +7,7 @@ import os
 import mecademicpy.robot as mdr
 
 # 데이터 저장 디렉토리 설정
-OUTPUT_DIR = "vla_dataset"
+OUTPUT_DIR = "./vla_dataset"
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 DATA_FILE = os.path.join(OUTPUT_DIR, "robot_data.txt")  # 로봇 데이터만 저장

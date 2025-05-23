@@ -7,9 +7,9 @@ from scipy.spatial.transform import Rotation as R, Slerp
 from datetime import datetime
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-save_path = "/home/zed_box/Documents/ArUco_cap"
+save_path = "/home/zed_box/Documents/ZED_Cap_make_dataset/ArUco_cap"
 
-view_name = "rightcam"  
+view_name = "leftcam"  
 view_map = {
     "leftcam": sl.VIEW.LEFT,
     "rightcam": sl.VIEW.RIGHT
@@ -29,7 +29,7 @@ camera_position = camera_position_map.get(camera_serial, "unknown")
 zed = sl.Camera()
 init_params = sl.InitParameters()
 init_params.camera_resolution = sl.RESOLUTION.HD1200
-init_params.camera_fps = 15
+init_params.camera_fps = 30
 init_params.coordinate_units = sl.UNIT.METER
 init_params.set_from_serial_number(camera_serial)
 
