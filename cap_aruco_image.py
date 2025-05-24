@@ -118,7 +118,8 @@ def slerp_ema_stable(prev_quat, curr_quat, alpha):
 
 while True:
     if zed.grab(runtime_parameters) == sl.ERROR_CODE.SUCCESS:
-        zed.retrieve_image(image_zed, sl.VIEW.LEFT)
+        # zed.retrieve_image(image_zed, sl.VIEW.LEFT)
+        zed.retrieve_image(image_zed, view)
         frame = image_zed.get_data()
 
         # 이미지 왜곡 보정
