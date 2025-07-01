@@ -1,10 +1,7 @@
 import os
 import json
+import configparser
 import pyzed.sl as sl
-
-# 출력 폴더
-output_dir = "./Calib_cam"
-os.makedirs(output_dir, exist_ok=True)
 
 # 시리얼 ↔ 위치 매핑
 camera_list = {
@@ -14,40 +11,69 @@ camera_list = {
     49045152: "top"
 }
 
+zed_conf_dir = "/home/zed_box/Documents/Auto_Needle_Insertion_System/camera_conf"
+output_dir = "./Calib_cam_from_conf"
+os.makedirs(output_dir, exist_ok=True)
+def load_fhd_calibration(conf_path, side):
+    config = configparser.ConfigParser()
+
+    # UTF-8 BOM 제거하여 파일 읽기
+    with open(conf_path, "r", encoding="utf-8-sig") as f:
+        config.read_file(f)
+
+    section = f"{side.upper()}_CAM_FHD"
+    adv_section = f"{side.upper()}_DISTO"
+
+    cam = config[section]
+
+    fx = float(cam["fx"])
+    fy = float(cam["fy"])
+    cx = float(cam["cx"])
+    cy = float(cam["cy"])
+    k1 = float(cam["k1"])
+    k2 = float(cam["k2"])
+    p1 = float(cam["p1"])
+    p2 = float(cam["p2"])
+    k3 = float(cam["k3"])
+
+    camera_matrix = [
+        [fx, 0.0, cx],
+        [0.0, fy, cy],
+        [0.0, 0.0, 1.0]
+    ]
+    distortion_coeffs = [k1, k2, p1, p2, k3]
+
+    adv_dist = {}
+    if adv_section in config:
+        adv = config[adv_section]
+        for key in adv:
+            adv_dist[key] = float(adv[key])
+
+    return camera_matrix, distortion_coeffs, adv_dist
+
+
+# 전체 처리
 for serial, position in camera_list.items():
-    zed = sl.Camera()
-    init_params = sl.InitParameters()
-    init_params.camera_resolution = sl.RESOLUTION.HD1200
-    init_params.camera_fps = 30
-    init_params.coordinate_units = sl.UNIT.METER
-    init_params.set_from_serial_number(serial)
+    conf_path = os.path.join(zed_conf_dir, f"SN{serial}.conf")
     
-    if zed.open(init_params) != sl.ERROR_CODE.SUCCESS:
-        print(f"[{position}] ZED 초기화 실패 (serial: {serial})")
+    if not os.path.exists(conf_path):
+        print(f"[{position}] 설정 파일 없음: {conf_path}")
         continue
 
-    calib = zed.get_camera_information().camera_configuration.calibration_parameters
+    for side, side_name in [("LEFT", "leftcam"), ("RIGHT", "rightcam")]:
+        try:
+            cam_matrix, dist_coeffs, adv_dist = load_fhd_calibration(conf_path, side)
 
-    for side_attr, side_name in [("left_cam", "leftcam"), ("right_cam", "rightcam")]:
-        cam = getattr(calib, side_attr)
-        # 카메라 행렬
-        cam_matrix = [
-            [float(cam.fx), 0.0,           float(cam.cx)],
-            [0.0,           float(cam.fy), float(cam.cy)],
-            [0.0,           0.0,           1.0]
-        ]
-        # 왜곡 계수 전체를 리스트로 변환 (필요한 만큼 모두 기록)
-        dist_coeffs = [float(d) for d in cam.disto]
+            data = {
+                "camera_matrix": cam_matrix,
+                "distortion_coeffs": dist_coeffs,
+                "advanced_distortion": adv_dist
+            }
 
-        cam_spec = {
-            "camera_matrix": cam_matrix,
-            "distortion_coeffs": dist_coeffs
-        }
+            filename = f"{position}_{serial}_{side_name}_calib.json"
+            with open(os.path.join(output_dir, filename), "w") as f:
+                json.dump(data, f, indent=4)
+            print(f"[{position}] 저장 완료: {filename} (distortion: {dist_coeffs})")
 
-        filename = f"{position}_{serial}_{side_name}_calib.json"
-        with open(os.path.join(output_dir, filename), "w") as f:
-            # indent=4로 저장해도 소수점은 사라지지 않습니다.
-            json.dump(cam_spec, f, indent=4)
-        print(f"[{position}] Saved {filename}  (distortion: {dist_coeffs})")
-
-    zed.close()
+        except Exception as e:
+            print(f"[{position}] {side_name} 처리 중 오류: {e}")
